@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Development script for Rate Your Friends
-echo "🚀 Starting Rate Your Friends development environment..."
+# Development script for Bisca
+echo "🚀 Starting Bisca development environment..."
 
 # Check if Docker is running
 if ! docker info > /dev/null 2>&1; then

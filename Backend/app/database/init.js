@@ -1,7 +1,7 @@
-// MongoDB initialization script for Rate Your Friends (Briscola Game)
-db = db.getSiblingDB('rateyourfriendsDB');
+// MongoDB initialization script for Bisca Game
+db = db.getSiblingDB('biscaDB');
 
-print('Initializing Rate Your Friends database...');
+print('Initializing Bisca database...');
 
 // ===========================================
 // USERS COLLECTION (Frequent read/write - Auth)
