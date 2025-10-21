@@ -69,7 +69,7 @@ async fn load_tls_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
 async fn health_check() -> Json<Value> {
     Json(json!({
         "status": "ok",
-        "message": "Rate Your Friends API is running (HTTPS)",
+        "message": "Bisca API is running (HTTPS)",
         "secure": true
     }))
 }

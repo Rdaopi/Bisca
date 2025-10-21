@@ -28,7 +28,7 @@ RUN useradd -r -s /bin/false appuser
 WORKDIR /app
 
 # Copy the binary from builder stage
-COPY --from=builder /app/target/release/rate_your_friends /app/rate_your_friends
+COPY --from=builder /app/target/release/bisca /app/bisca
 
 # Copy config file if it exists
 COPY --chown=appuser:appuser config.example.toml ./config.toml
@@ -51,4 +51,4 @@ ENV HOST=0.0.0.0
 ENV PORT=3000
 
 # Run the application
-CMD ["./rate_your_friends"]
+CMD ["./bisca"]

@@ -1,5 +1,5 @@
 [database]
-uri = "mongodb://admin:password123@localhost:27017/rate_your_friends?authSource=admin"
+uri = "mongodb://admin:password123@localhost:27017/bisca?authSource=admin"
 
 [server]
 host = "0.0.0.0"

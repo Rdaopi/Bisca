@@ -2,11 +2,11 @@ services:
   # MongoDB Database
   mongodb:
     image: mongo:7.0
-    container_name: rate_your_friends_db
+    container_name: bisca_app_db
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password123
-      MONGO_INITDB_DATABASE: rateyourfriendsDB
+      MONGO_INITDB_DATABASE: biscaDB
     ports:
       - "27017:27017"
     volumes:
@@ -25,9 +25,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: rate_your_friends_app
+    container_name: bisca_app
     environment:
-      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/rateyourfriendsDB?authSource=admin
+      - MONGODB_URI=mongodb://admin:password123@mongodb:27017/biscaDB?authSource=admin
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
       - RUST_LOG=info
       - HOST=0.0.0.0

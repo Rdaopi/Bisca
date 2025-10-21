@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Start Rate Your Friends server with HTTPS support
+# Start Bisca server with HTTPS support
 
-echo "🎮 Rate Your Friends Server Startup"
+echo "🎮 Bisca Server Startup"
 echo "=================================="
 
 # Check if certificates exist

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# API Testing script for Rate Your Friends
-echo "🧪 Testing Rate Your Friends API..."
+# API Testing script for Bisca
+echo "🧪 Testing Bisca API..."
 
 BASE_URL="http://localhost:3000"
 
