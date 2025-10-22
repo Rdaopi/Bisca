@@ -1,11 +1,11 @@
 # Multi-stage build for Rust application
-FROM rust:1.75 as builder
+FROM rust:1.82 as builder
 
 # Set working directory
 WORKDIR /app
 
 # Copy manifests
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
 
 # Copy source code
 COPY src ./src

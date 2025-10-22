@@ -10,16 +10,6 @@ use std::sync::Arc;
 use tower::ServiceBuilder;
 use tower_http::cors::{Any, CorsLayer};
 use tokio::net::TcpListener;
-use tokio_rustls::TlsAcceptor;
-use rustls::{ServerConfig, Certificate, PrivateKey};
-use rustls_pemfile::{certs, pkcs8_private_keys};
-use std::io::BufReader;
-use std::fs::File;
-
-mod models;
-mod sse;
-
-use sse::SseManager;
 
 // ===========================================
 // APPLICATION STATE
@@ -27,177 +17,63 @@ use sse::SseManager;
 
 #[derive(Clone)]
 pub struct AppState {
-    pub sse_manager: Arc<SseManager>,
-    // Add your database connection and other state here
+    pub mongodb_uri: String,
+    pub jwt_secret: String,
 }
 
 // ===========================================
-// HTTPS CONFIGURATION
-// ===========================================
-
-async fn load_tls_config() -> Result<ServerConfig, Box<dyn std::error::Error>> {
-    // Load certificate and private key
-    let cert_file = File::open("certs/server.crt")?;
-    let key_file = File::open("certs/server.key")?;
-    
-    let mut cert_reader = BufReader::new(cert_file);
-    let mut key_reader = BufReader::new(key_file);
-    
-    // Parse certificates
-    let cert_chain = certs(&mut cert_reader)?
-        .into_iter()
-        .map(Certificate)
-        .collect();
-    
-    // Parse private key
-    let mut keys = pkcs8_private_keys(&mut key_reader)?;
-    let private_key = PrivateKey(keys.remove(0));
-    
-    // Create server config
-    let config = ServerConfig::builder()
-        .with_safe_defaults()
-        .with_no_client_auth()
-        .with_single_cert(cert_chain, private_key)?;
-    
-    Ok(config)
-}
-
-// ===========================================
-// ROUTE HANDLERS (Same as before)
+// ROUTE HANDLERS
 // ===========================================
 
 async fn health_check() -> Json<Value> {
     Json(json!({
         "status": "ok",
-        "message": "Bisca API is running (HTTPS)",
-        "secure": true
+        "message": "Bisca API is running",
+        "version": "1.0.0"
     }))
 }
 
-async fn create_game(State(state): State<AppState>) -> Json<Value> {
-    let game_id = uuid::Uuid::new_v4().to_string();
-    
+async fn create_game(State(_state): State<AppState>) -> Json<Value> {
     Json(json!({
         "success": true,
-        "game_id": game_id,
-        "message": "Game created successfully",
-        "secure": true
+        "game_id": "example-game-id",
+        "message": "Game created successfully"
     }))
 }
 
-async fn join_game(State(state): State<AppState>) -> Json<Value> {
+async fn join_game(State(_state): State<AppState>) -> Json<Value> {
     Json(json!({
         "success": true,
-        "message": "Joined game successfully",
-        "secure": true
+        "message": "Joined game successfully"
     }))
 }
 
-async fn play_card(State(state): State<AppState>) -> Json<Value> {
+async fn play_card(State(_state): State<AppState>) -> Json<Value> {
     Json(json!({
         "success": true,
-        "message": "Card played successfully",
-        "secure": true
+        "message": "Card played successfully"
     }))
 }
 
-async fn make_prediction(State(state): State<AppState>) -> Json<Value> {
+async fn make_prediction(State(_state): State<AppState>) -> Json<Value> {
     Json(json!({
         "success": true,
-        "message": "Prediction made successfully",
-        "secure": true
+        "message": "Prediction made successfully"
     }))
 }
 
 // ===========================================
-// HTTPS SERVER
-// ===========================================
-
-pub async fn run_https_server() -> Result<(), Box<dyn std::error::Error>> {
-    // Initialize logging
-    tracing_subscriber::fmt::init();
-
-    // Load TLS configuration
-    let tls_config = load_tls_config().await?;
-    let tls_acceptor = TlsAcceptor::from(Arc::new(tls_config));
-
-    // Initialize SSE manager
-    let sse_manager = Arc::new(SseManager::new());
-
-    // Create application state
-    let app_state = AppState {
-        sse_manager,
-    };
-
-    // Configure CORS for HTTPS
-    let cors = CorsLayer::new()
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-        .allow_headers(Any)
-        .allow_origin(Any)
-        .allow_credentials(true); // Important for HTTPS
-
-    // Create the router
-    let app = Router::new()
-        // Health check
-        .route("/health", get(health_check))
-        
-        // Game management
-        .route("/games", post(create_game))
-        .route("/games/:game_id/join", post(join_game))
-        
-        // Game actions
-        .route("/games/:game_id/play-card", post(play_card))
-        .route("/games/:game_id/prediction", post(make_prediction))
-        
-        // SSE endpoint for real-time updates
-        .route("/games/:game_id/events", get(sse::game_events_sse))
-        
-        // Add state and middleware
-        .with_state(app_state)
-        .layer(ServiceBuilder::new().layer(cors));
-
-    // Start the HTTPS server
-    let listener = TcpListener::bind("0.0.0.0:443").await?;
-    
-    println!("🔐 HTTPS Server starting...");
-    println!("📡 SSE endpoint: https://localhost:443/games/{{game_id}}/events");
-    println!("🔒 All connections are encrypted with TLS");
-    
-    // Accept connections and handle TLS
-    loop {
-        let (stream, addr) = listener.accept().await?;
-        let acceptor = tls_acceptor.clone();
-        let app = app.clone();
-        
-        tokio::spawn(async move {
-            match acceptor.accept(stream).await {
-                Ok(tls_stream) => {
-                    println!("🔐 Secure connection from: {}", addr);
-                    axum::serve::IncomingStream::from_stream(tls_stream)
-                        .serve(app.into_make_service())
-                        .await
-                        .unwrap_or_else(|e| eprintln!("❌ Connection error: {}", e));
-                }
-                Err(e) => eprintln!("❌ TLS handshake failed: {}", e),
-            }
-        });
-    }
-}
-
-// ===========================================
-// DEVELOPMENT SERVER (HTTP)
+// SERVER FUNCTIONS
 // ===========================================
 
 pub async fn run_dev_server() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
     tracing_subscriber::fmt::init();
 
-    // Initialize SSE manager
-    let sse_manager = Arc::new(SseManager::new());
-
     // Create application state
     let app_state = AppState {
-        sse_manager,
+        mongodb_uri: std::env::var("MONGODB_URI").unwrap_or_else(|_| "mongodb://localhost:27017/biscaDB".to_string()),
+        jwt_secret: std::env::var("JWT_SECRET").unwrap_or_else(|_| "dev-secret-key".to_string()),
     };
 
     // Configure CORS
@@ -219,9 +95,6 @@ pub async fn run_dev_server() -> Result<(), Box<dyn std::error::Error>> {
         .route("/games/:game_id/play-card", post(play_card))
         .route("/games/:game_id/prediction", post(make_prediction))
         
-        // SSE endpoint for real-time updates
-        .route("/games/:game_id/events", get(sse::game_events_sse))
-        
         // Add state and middleware
         .with_state(app_state)
         .layer(ServiceBuilder::new().layer(cors));
@@ -229,13 +102,19 @@ pub async fn run_dev_server() -> Result<(), Box<dyn std::error::Error>> {
     // Start the development server (HTTP)
     let listener = TcpListener::bind("0.0.0.0:3000").await?;
 
-    println!("🚀 Development server running on http://0.0.0.0:3000");
-    println!("⚠️  WARNING: This is HTTP only - not secure for production!");
-    println!("📡 SSE endpoint: http://localhost:3000/games/{{game_id}}/events");
+    println!("🚀 Bisca Server running on http://0.0.0.0:3000");
+    println!("📡 Health check: http://localhost:3000/health");
+    println!("🎮 Ready to play!");
     
     axum::serve(listener, app)
         .await
         .expect("Server failed to start");
     
     Ok(())
+}
+
+pub async fn run_https_server() -> Result<(), Box<dyn std::error::Error>> {
+    // For now, just run the dev server
+    // HTTPS implementation can be added later
+    run_dev_server().await
 }

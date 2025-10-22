@@ -42,7 +42,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      container_name: bisca_app
+    container_name: bisca_app
     environment:
       - MONGODB_URI=mongodb://admin:password123@mongodb:27017/biscaDB?authSource=admin
       - REDIS_URL=redis://redis:6379
@@ -62,6 +62,7 @@ services:
     volumes:
       - ./config.example.toml:/app/config.toml:ro
     restart: unless-stopped
+    command: ["./bisca", "--dev"]
 
 volumes:
   mongodb_data:

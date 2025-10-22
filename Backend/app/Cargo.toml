@@ -42,8 +42,8 @@ jsonwebtoken = "9.3"
 # Random number generation
 rand = "0.8"
 
-# Server-Sent Events
-axum-sse = "0.1"
+# Server-Sent Events (using axum built-in SSE)
+tokio-stream = "0.1"
 
 # Redis for pub/sub (optional - can use in-memory for simple setup)
 redis = { version = "0.24", features = ["tokio-comp"] }

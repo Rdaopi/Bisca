@@ -1,7 +1,6 @@
 # Rust build artifacts
 target/
 **/*.rs.bk
-Cargo.lock
 
 # IDE files
 .vscode/
@@ -33,3 +32,14 @@ README.md
 Dockerfile
 docker-compose.yml
 .dockerignore
+
+# Node modules (if any)
+node_modules/
+
+# Python cache (if any)
+__pycache__/
+*.pyc
+
+# Temporary files
+tmp/
+temp/

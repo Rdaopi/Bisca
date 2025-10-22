@@ -7,6 +7,8 @@ services:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD: password123
       MONGO_INITDB_DATABASE: biscaDB
+      # Ottimizzazioni MongoDB
+      MONGO_INITDB_WIREDTIGER_CACHE_SIZE_GB: 0.5
     ports:
       - "27017:27017"
     volumes:
@@ -19,6 +21,14 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    # Ottimizzazioni memoria MongoDB
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+    cpus: "1.0"
 
   # Rust Web Application
   app:
@@ -42,6 +52,16 @@ services:
     volumes:
       - ./config.example.toml:/app/config.toml:ro
     restart: unless-stopped
+    command: ["./bisca", "--dev"]
+    # Ottimizzazioni memoria
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+    # Riduce l'uso di CPU
+    cpus: "1.0"
 
 volumes:
   mongodb_data:
