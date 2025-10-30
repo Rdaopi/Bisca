@@ -1,13 +1,10 @@
+use axum::extract::ws::Message;
+use serde_json::Value;
 
-use crate::cards::{Card, Suit, deal_round, beats_custom, shuffle_deck};
-
-#[derive(Debug)]
-pub struct Player {
-    pub id: usize,
-    pub hand: Vec<Card>,
-    pub prediction: Option<u8>,
-    pub tricks_won: u8,
-}
+use super::{
+    card::{deal_round, Card, Suit},
+    player::Player,
+};
 
 #[derive(Debug)]
 pub struct GameState {
@@ -15,88 +12,130 @@ pub struct GameState {
     pub round_number: usize,
     pub starting_cards: usize,
     pub deck: Vec<Card>,
-    pub current_turn_cards: Vec<(usize, Card)>, // (player_index, card)
+    pub current_turn_cards: Vec<(String, Card)>, // (player_id, card)
     pub leading_suit: Option<Suit>,
 }
 
-// ========================
-// Funzioni principali
-// ========================
-
 impl GameState {
-    //  Crea una nuova partita
     pub fn new_game(num_players: usize, starting_cards: usize) -> Self {
-        let mut deck = Card::shuffle_deck();
-        let players = (0..num_players).map(|i| Player {
-            id: i,
-            hand: Vec::new(),
-            prediction: None,
-            tricks_won: 0,
-        }).collect();
-
         GameState {
-            players,
+            players: Vec::with_capacity(num_players),
             round_number: 1,
             starting_cards,
-            deck,
+            deck: Card::shuffle_deck(),
             current_turn_cards: Vec::new(),
             leading_suit: None,
         }
     }
 
-    //  Distribuisce le carte per il round corrente
+    pub fn start_game(&mut self) {
+        self.round_number = 1;
+        self.deck = Card::shuffle_deck();
+        self.deal_round();
+    }
+
+    pub fn add_player(&mut self, player: Player) -> Result<(), String> {
+        if self.players.iter().any(|p| p.id == player.id) {
+            return Err("Giocatore gia presente".to_string());
+        }
+        self.players.push(player);
+        Ok(())
+    }
+
+    pub fn remove_player(&mut self, player_id: &str) {
+        self.players.retain(|p| p.id != player_id);
+        self.current_turn_cards
+            .retain(|(id, _)| id != player_id);
+    }
+
+    pub fn broadcast(&self, event: &str, data: Value) {
+        if self.players.is_empty() {
+            return;
+        }
+        let payload = serde_json::json!({ "event": event, "data": data }).to_string();
+        for player in &self.players {
+            let _ = player.sender.send(Message::Text(payload.clone()));
+        }
+    }
+
     pub fn deal_round(&mut self) {
+        if self.players.is_empty() {
+            return;
+        }
         let hands = deal_round(
             &mut self.deck,
             self.players.len(),
             self.round_number,
             self.starting_cards,
         );
-        for (i, hand) in hands.into_iter().enumerate() {
-            self.players[i].hand = hand;
-        }
-        self.current_turn_cards.clear();
-        self.leading_suit = None;
-        for player in &mut self.players {
+        for (player, hand) in self.players.iter_mut().zip(hands) {
+            player.hand = hand;
             player.prediction = None;
             player.tricks_won = 0;
         }
+        self.current_turn_cards.clear();
+        self.leading_suit = None;
     }
 
-    //  Registrare la predizione di un giocatore
-    pub fn make_prediction(&mut self, player_index: usize, prediction: u8) -> Result<(), String> {
-        // Controllo regola ultimo giocatore
-        let predictions_so_far: Vec<u8> = self.players.iter()
+    pub fn make_prediction(&mut self, player_id: &str, prediction: u8) -> Result<(), String> {
+        let player_index = self
+            .player_index(player_id)
+            .ok_or_else(|| "Giocatore inesistente".to_string())?;
+
+        if self.players.is_empty() {
+            return Err("Nessun giocatore in partita".to_string());
+        }
+
+        let predictions_so_far: Vec<u8> = self
+            .players
+            .iter()
             .filter_map(|p| p.prediction)
             .collect();
         let cards_in_hand = self.players[player_index].hand.len() as u8;
-        if predictions_so_far.len() as u8 == (self.players.len() as u8 - 1) {
-            let total: u8 = predictions_so_far.iter().sum();
-            if total + prediction == cards_in_hand as u8 {
-                return Err("Ultimo giocatore non può completare la somma esatta".to_string());
+
+        if predictions_so_far.len() + 1 == self.players.len() {
+            let total: u8 = predictions_so_far.iter().copied().sum();
+            if total + prediction == cards_in_hand {
+                return Err("Ultimo giocatore non puo completare la somma esatta".to_string());
             }
         }
+
         self.players[player_index].prediction = Some(prediction);
         Ok(())
     }
 
-    //  Giocare una carta
-    pub fn play_card(&mut self, player_index: usize, card_index: usize) -> Result<(), String> {
-        if player_index >= self.players.len() {
-            return Err("Giocatore inesistente".to_string());
-        }
-        let card = self.players[player_index].hand.remove(card_index);
+    pub fn play_card(&mut self, player_id: &str, card: Card) -> Result<(), String> {
+        let player_index = self
+            .player_index(player_id)
+            .ok_or_else(|| "Giocatore inesistente".to_string())?;
+
+        let player = &mut self.players[player_index];
+        let card_position = player
+            .hand
+            .iter()
+            .position(|c| c == &card)
+            .ok_or_else(|| "Carta non trovata nella mano del giocatore".to_string())?;
+
+        let played_card = player.hand.remove(card_position);
+
         if self.leading_suit.is_none() {
-            self.leading_suit = Some(card.suit.clone());
+            self.leading_suit = Some(played_card.suit.clone());
         }
-        self.current_turn_cards.push((player_index, card));
+
+        self.current_turn_cards
+            .push((player.id.clone(), played_card));
         Ok(())
     }
 
+    pub fn end_turn(&mut self) -> Option<String> {
+        if self.current_turn_cards.is_empty() {
+            return None;
+        }
+        let leading = match self.leading_suit.as_ref() {
+            Some(leading) => leading,
+            None => return None,
+        };
 
-    //  Determina il vincitore del turno
-    pub fn end_turn(&mut self) -> usize {
-        let leading = self.leading_suit.as_ref().unwrap();
         let mut best_index = 0;
         for i in 1..self.current_turn_cards.len() {
             let (_, ref card_i) = self.current_turn_cards[i];
@@ -105,35 +144,42 @@ impl GameState {
                 best_index = i;
             }
         }
-        let winner_index = self.current_turn_cards[best_index].0;
-        self.players[winner_index].tricks_won += 1;
+
+        let winner_id = self.current_turn_cards[best_index].0.clone();
+        if let Some(player) = self.players.iter_mut().find(|p| p.id == winner_id) {
+            player.tricks_won += 1;
+        }
+
         self.current_turn_cards.clear();
         self.leading_suit = None;
-        winner_index
+        Some(winner_id)
     }
 
-    //  Fine round: restituisce un vettore di risultati
-    pub fn end_round(&self) -> Vec<(usize, bool)> {
-        self.players.iter().map(|p| {
-            let success = p.prediction.unwrap_or(0) == p.tricks_won;
-            (p.id, success)
-        }).collect()
+    pub fn end_round(&self) -> Vec<(String, bool)> {
+        self.players
+            .iter()
+            .map(|p| {
+                let success = p.prediction.unwrap_or(0) == p.tricks_won;
+                (p.id.clone(), success)
+            })
+            .collect()
     }
 
-    //  Avanza al round successivo
     pub fn next_round(&mut self) {
         self.round_number += 1;
         self.deck = Card::shuffle_deck();
         self.deal_round();
     }
 
-    //  Controlla se il round è finito
     pub fn is_round_over(&self) -> bool {
         self.players.iter().all(|p| p.hand.is_empty())
     }
 
-    //  Controlla se la partita è finita
     pub fn is_game_over(&self) -> bool {
         self.round_number > self.starting_cards
+    }
+
+    fn player_index(&self, player_id: &str) -> Option<usize> {
+        self.players.iter().position(|p| p.id == player_id)
     }
 }
