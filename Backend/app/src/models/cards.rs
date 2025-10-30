@@ -1,11 +1,8 @@
-use serde::{Deserialize, Serialize};
+use rand::seq::SliceRandom;
+use rand::thread_rng;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
-pub struct Card {
-    pub suit: Suit,
-    pub value: Value,
-}
-
+//  I quattro semi del mazzo italiano
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Suit {
     Denari,
@@ -14,97 +11,112 @@ pub enum Suit {
     Bastoni,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum Value {
-    Due,
-    Tre,
-    Quattro,
-    Cinque,
-    Sei,
-    Sette,
-    Fante,
-    Cavallo,
-    Re,
-    Asso,
+pub fn suit_strength(suit: &Suit) -> u8 {
+    match suit {
+        Suit::Denari => 4,
+        Suit::Coppe => 3,
+        Suit::Spade => 2,
+        Suit::Bastoni => 1,
+    }
 }
 
-// Mazzo completo di 40 carte da Briscola
-pub const FULL_DECK: [Card; 40] = [
-    // Denari
-    Card { suit: Suit::Denari, value: Value::Due },
-    Card { suit: Suit::Denari, value: Value::Tre },
-    Card { suit: Suit::Denari, value: Value::Quattro },
-    Card { suit: Suit::Denari, value: Value::Cinque },
-    Card { suit: Suit::Denari, value: Value::Sei },
-    Card { suit: Suit::Denari, value: Value::Sette },
-    Card { suit: Suit::Denari, value: Value::Fante },
-    Card { suit: Suit::Denari, value: Value::Cavallo },
-    Card { suit: Suit::Denari, value: Value::Re },
-    Card { suit: Suit::Denari, value: Value::Asso },
-    
-    // Coppe
-    Card { suit: Suit::Coppe, value: Value::Due },
-    Card { suit: Suit::Coppe, value: Value::Tre },
-    Card { suit: Suit::Coppe, value: Value::Quattro },
-    Card { suit: Suit::Coppe, value: Value::Cinque },
-    Card { suit: Suit::Coppe, value: Value::Sei },
-    Card { suit: Suit::Coppe, value: Value::Sette },
-    Card { suit: Suit::Coppe, value: Value::Fante },
-    Card { suit: Suit::Coppe, value: Value::Cavallo },
-    Card { suit: Suit::Coppe, value: Value::Re },
-    Card { suit: Suit::Coppe, value: Value::Asso },
-    
-    // Spade
-    Card { suit: Suit::Spade, value: Value::Due },
-    Card { suit: Suit::Spade, value: Value::Tre },
-    Card { suit: Suit::Spade, value: Value::Quattro },
-    Card { suit: Suit::Spade, value: Value::Cinque },
-    Card { suit: Suit::Spade, value: Value::Sei },
-    Card { suit: Suit::Spade, value: Value::Sette },
-    Card { suit: Suit::Spade, value: Value::Fante },
-    Card { suit: Suit::Spade, value: Value::Cavallo },
-    Card { suit: Suit::Spade, value: Value::Re },
-    Card { suit: Suit::Spade, value: Value::Asso },
-    
-    // Bastoni
-    Card { suit: Suit::Bastoni, value: Value::Due },
-    Card { suit: Suit::Bastoni, value: Value::Tre },
-    Card { suit: Suit::Bastoni, value: Value::Quattro },
-    Card { suit: Suit::Bastoni, value: Value::Cinque },
-    Card { suit: Suit::Bastoni, value: Value::Sei },
-    Card { suit: Suit::Bastoni, value: Value::Sette },
-    Card { suit: Suit::Bastoni, value: Value::Fante },
-    Card { suit: Suit::Bastoni, value: Value::Cavallo },
-    Card { suit: Suit::Bastoni, value: Value::Re },
-    Card { suit: Suit::Bastoni, value: Value::Asso },
-];
+
+//  I valori delle carte (1–10)
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Value {
+    Asso = 11,  
+    Re = 10,
+    Cavallo = 9,
+    Fante = 8,
+    Sette = 7,
+    Sei = 6,
+    Cinque = 5,
+    Quattro = 4,
+    Tre = 3,
+    Due = 2,
+}
+
+//  Struttura principale della carta
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct Card {
+    pub suit: Suit,
+    pub value: Value,
+}
 
 impl Card {
-    // Funzione per mescolare le carte
+    //  Crea e mescola un mazzo completo (40 carte)
     pub fn shuffle_deck() -> Vec<Card> {
-        use rand::seq::SliceRandom;
-        let mut deck = FULL_DECK.to_vec();
-        deck.shuffle(&mut rand::thread_rng());
+        let mut deck = Vec::new();
+
+        let suits = vec![
+            Suit::Denari,
+            Suit::Coppe,
+            Suit::Spade,
+            Suit::Bastoni,
+        ];
+
+        let values = vec![
+            Value::Asso,
+            Value::Tre,
+            Value::Re,
+            Value::Cavallo,
+            Value::Fante,
+            Value::Sette,
+            Value::Sei,
+            Value::Cinque,
+            Value::Quattro,
+            Value::Due,
+        ];
+
+        for suit in suits {
+            for value in &values {
+                deck.push(Card {
+                    suit: suit.clone(),
+                    value: value.clone(),
+                });
+            }
+        }
+
+        let mut rng = thread_rng();
+        deck.shuffle(&mut rng);
         deck
     }
+}
+
+//  Distribuisce carte a ciascun giocatore
+pub fn deal_cards(deck: &mut Vec<Card>, num_players: usize, cards_per_player: usize) -> Vec<Vec<Card>> {
+    let mut hands = vec![Vec::new(); num_players];
     
-    // Funzione per confrontare due carte (chi vince)
-    pub fn beats(&self, other: &Card, trump_suit: &Suit) -> bool {
-        // Se una carta è di briscola e l'altra no, vince la briscola
-        if self.suit == *trump_suit && other.suit != *trump_suit {
+    for _ in 0..cards_per_player {
+        for player in 0..num_players {
+            if let Some(card) = deck.pop() {
+                hands[player].push(card);
+            }
+        }
+    }
+    hands
+}
+
+//  Distribuisce le carte per round (ogni round diminuisce di una carta)
+pub fn deal_round(deck: &mut Vec<Card>, num_players: usize, round_number: usize, starting_cards: usize) -> Vec<Vec<Card>> {
+    let cards_per_player = starting_cards - (round_number - 1);
+    deal_cards(deck, num_players, cards_per_player)
+}
+
+impl Card {
+    pub fn beats_custom(&self, other: &Card, leading_suit: &Suit) -> bool {
+        // Se self è Denari e l'altra no → vince self
+        if suit_strength(&self.suit) > suit_strength(&other.suit) {
             return true;
         }
-        if other.suit == *trump_suit && self.suit != *trump_suit {
-            return false;
-        }
-        
-        // Se entrambe sono briscola o nessuna è briscola
+        // Se stessa forza e stesso seme → confronto per valore
         if self.suit == other.suit {
-            // Stesso seme: vince il valore più alto
-            self.value > other.value
-        } else {
-            // Semi diversi e nessuna è briscola: vince la prima giocata
-            false
+            return self.value > other.value;
         }
+        // Se semi diversi ma self ha il seme dominante
+        if self.suit == *leading_suit && other.suit != *leading_suit {
+            return true;
+        }
+        false
     }
 }
