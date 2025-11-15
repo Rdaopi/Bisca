@@ -1,0 +1,55 @@
+[package]
+name = "bisca"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["ws"] }
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "fs"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Database
+mongodb = "2.8"
+
+# UUID generation
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# BSON for MongoDB
+bson = "2.9"
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Environment variables
+dotenv = "0.15"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Password hashing
+bcrypt = "0.15"
+
+# JWT tokens
+jsonwebtoken = "9.3"
+
+# Random number generation
+rand = "0.8"
+
+# Redis for pub/sub (optional - can use in-memory for simple setup)
+redis = { version = "0.24", features = ["tokio-comp"] }
+
+# Async channels for in-memory pub/sub (tokio already defined above)
+
+# HTTPS/TLS support
+tokio-rustls = "0.24"
+rustls = "0.21"
+rustls-pemfile = "1.0"
+tokio-stream = { version = "0.1", features = ["net"] }
+futures = "0.3"

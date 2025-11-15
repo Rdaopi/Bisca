@@ -1,0 +1,12 @@
+[database]
+uri = "mongodb://admin:password123@localhost:27017/bisca?authSource=admin"
+
+[server]
+host = "0.0.0.0"
+port = 3000
+
+[jwt]
+secret = "your-super-secret-jwt-key-change-this-in-production"
+
+[logging]
+level = "info"
